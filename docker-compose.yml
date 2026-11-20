@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bharti
+      POSTGRES_PASSWORD: bharti
+      POSTGRES_DB: bharti
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bharti -d bharti"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # No default. Compose refuses to start without it, which is the point:
+      # a default signing key in a public repo is how sessions get forged.
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set — run: export SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(48))")}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://bharti:bharti@db:5432/bharti
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
+      FIRST_USER_IS_ADMIN: ${FIRST_USER_IS_ADMIN:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
